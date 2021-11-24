@@ -37,6 +37,11 @@ async function createRoom() {
 
   registerPeerConnectionListeners();
 
+  localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
+  });
+
+  // https://stackoverflow.com/questions/38036552/rtcpeerconnection-onicecandidate-not-fire
   // Add code for creating a room here
 
   const offer = await peerConnection.createOffer();
@@ -53,10 +58,6 @@ async function createRoom() {
   document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the caller!`
 
   // Code for creating room above
-  
-  localStream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, localStream);
-  });
 
   // Code for collecting ICE candidates below
 
