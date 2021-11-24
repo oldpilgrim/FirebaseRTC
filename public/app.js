@@ -31,6 +31,7 @@ async function createRoom() {
   document.querySelector('#createBtn').disabled = true;
   document.querySelector('#joinBtn').disabled = true;
   const db = firebase.firestore();
+  const roomRef = await db.collection('rooms').doc();
 
   console.log('Create PeerConnection with configuration: ', configuration);
   peerConnection = new RTCPeerConnection(configuration);
@@ -40,6 +41,12 @@ async function createRoom() {
   localStream.getTracks().forEach(track => {
     peerConnection.addTrack(track, localStream);
   });
+
+  // Code for collecting ICE candidates below
+
+  collectIceCandidates(roomRef, peerConnection, 'callerCandidates', 'calleeCandidates');
+
+  // Code for collecting ICE candidates above
 
   // https://stackoverflow.com/questions/38036552/rtcpeerconnection-onicecandidate-not-fire
   // Add code for creating a room here
@@ -53,15 +60,11 @@ async function createRoom() {
       sdp: offer.sdp
     }
   }
-  const roomRef = await db.collection('rooms').add(roomWithOffer);
+  await roomRef.set(roomWithOffer);
   const roomId = roomRef.id;
   document.querySelector('#currentRoom').innerText = `Current room is ${roomId} - You are the caller!`
 
   // Code for creating room above
-
-  // Code for collecting ICE candidates below
-
-  // Code for collecting ICE candidates above
 
   peerConnection.addEventListener('track', event => {
     console.log('Got remote track:', event.streams[0]);
@@ -86,8 +89,6 @@ async function createRoom() {
   // Listening for remote session description above
 
   // Listen for remote ICE candidates below
-
-  collectIceCandidates(roomRef, peerConnection, 'callerCandidates', 'calleeCandidates');
 
   // Listen for remote ICE candidates above
 }
@@ -123,6 +124,8 @@ async function joinRoomById(roomId) {
 
     // Code for collecting ICE candidates below
 
+    collectIceCandidates(roomRef, peerConnection, 'calleeCandidates', 'callerCandidates');
+
     // Code for collecting ICE candidates above
 
     peerConnection.addEventListener('track', event => {
@@ -153,8 +156,6 @@ async function joinRoomById(roomId) {
 
     // Listening for remote ICE candidates below
 
-    collectIceCandidates(roomRef, peerConnection, 'calleeCandidates', 'callerCandidates');
-
     // Listening for remote ICE candidates above
   }
 }
@@ -162,18 +163,19 @@ async function joinRoomById(roomId) {
 async function collectIceCandidates(roomRef, peerConnection, localName, remoteName) {
   const candidatesCollection = roomRef.collection(localName);
 
-  peerConnection.addEventListener('icecandidate', event => {
+  peerConnection.onicecandidate = event => {
     if (event.candidate) {
+      console.log('new ice candidate: ', event.candidate);
       const json = event.candidate.toJSON();
       candidatesCollection.add(json);
     }
-  });
+  }
 
   roomRef.collection(remoteName).onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       if (change.type === "added") {
         const candidate = new RTCIceCandidate(change.doc.data());
-        peerConneciton.addIceCandidate(candidate);
+        peerConnection.addIceCandidate(candidate);
       }
     });
   })
